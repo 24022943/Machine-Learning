@@ -1,0 +1,13 @@
+@echo off
+chcp 65001 >nul
+cd /d "%~dp0"
+
+if not exist ".venv\Scripts\python.exe" (
+    echo [EcoPredict Carbon] Creating .venv inside project folder...
+    py -3.11 -m venv .venv
+)
+
+call .venv\Scripts\activate.bat
+python -m pip install --upgrade pip setuptools wheel
+python -m pip install -r requirements.txt
+pause
