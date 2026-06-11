@@ -524,28 +524,115 @@ def make_openpcf_training_rows(openpcf: pd.DataFrame, ceda: pd.DataFrame | None 
     return out
 
 
-def enrich_with_reference_factors(df: pd.DataFrame, openpcf: pd.DataFrame, ceda: pd.DataFrame) -> pd.DataFrame:
-    out = df.copy()
-    if not openpcf.empty:
-        country_mat = openpcf.groupby("country")["openpcf_factor_kgco2e_per_kg"].median().to_dict()
-        industry_mat = openpcf.groupby("industry_group")["openpcf_factor_kgco2e_per_kg"].median().to_dict()
-        global_mat = float(openpcf["openpcf_factor_kgco2e_per_kg"].median())
-        out["openpcf_factor_kgco2e_per_kg"] = out.get("openpcf_factor_kgco2e_per_kg", np.nan)
-        missing = out["openpcf_factor_kgco2e_per_kg"].isna()
-        out.loc[missing, "openpcf_factor_kgco2e_per_kg"] = out.loc[missing, "industry_group"].map(industry_mat)
-        missing = out["openpcf_factor_kgco2e_per_kg"].isna()
-        out.loc[missing, "openpcf_factor_kgco2e_per_kg"] = out.loc[missing, "country"].map(country_mat)
-        out["openpcf_factor_kgco2e_per_kg"] = out["openpcf_factor_kgco2e_per_kg"].fillna(global_mat)
-    else:
-        out["openpcf_factor_kgco2e_per_kg"] = out.get("openpcf_factor_kgco2e_per_kg", np.nan).fillna(1.0)
+def enrich_with_reference_factors(
+    carbon: pd.DataFrame,
+    openpcf: pd.DataFrame,
+    ceda: pd.DataFrame,
+) -> pd.DataFrame:
+    """
+    Bổ sung hệ số OpenPCF và Open CEDA vào dữ liệu Carbon Catalogue.
 
-    if not ceda.empty:
-        lookup = country_factor_lookup(ceda)
-        global_ceda = float(ceda["ceda_factor_kgco2e_per_usd"].median())
-        out["ceda_factor_kgco2e_per_usd"] = out.get("ceda_factor_kgco2e_per_usd", np.nan)
-        out["ceda_factor_kgco2e_per_usd"] = out["ceda_factor_kgco2e_per_usd"].fillna(out["country"].map(lookup)).fillna(global_ceda)
+    Fix Streamlit Cloud:
+    - Không dùng DataFrame.get(..., np.nan).fillna(...)
+    - Nếu cột chưa tồn tại thì tạo Series mặc định trước
+    - Tránh lỗi AttributeError: 'float' object has no attribute 'fillna'
+    """
+
+    out = carbon.copy()
+
+    def ensure_numeric_column(df: pd.DataFrame, col: str, default: float) -> pd.DataFrame:
+        if col not in df.columns:
+            df[col] = default
+        else:
+            df[col] = pd.to_numeric(df[col], errors="coerce").fillna(default)
+        return df
+
+    def safe_median(df: pd.DataFrame, col: str, default: float) -> float:
+        if df is None or df.empty or col not in df.columns:
+            return float(default)
+        values = pd.to_numeric(df[col], errors="coerce").dropna()
+        if values.empty:
+            return float(default)
+        return float(values.median())
+
+    openpcf_default = safe_median(openpcf, "openpcf_factor_kgco2e_per_kg", 1.0)
+
+    if "openpcf_factor_kgco2e_per_kg" not in out.columns:
+        out["openpcf_factor_kgco2e_per_kg"] = np.nan
+
+        if (
+            openpcf is not None
+            and not openpcf.empty
+            and "product_name" in openpcf.columns
+            and "openpcf_factor_kgco2e_per_kg" in openpcf.columns
+            and "product_name" in out.columns
+        ):
+            product_factor_map = (
+                openpcf.assign(
+                    openpcf_factor_kgco2e_per_kg=pd.to_numeric(
+                        openpcf["openpcf_factor_kgco2e_per_kg"],
+                        errors="coerce",
+                    )
+                )
+                .dropna(subset=["product_name", "openpcf_factor_kgco2e_per_kg"])
+                .groupby("product_name")["openpcf_factor_kgco2e_per_kg"]
+                .median()
+            )
+
+            out["openpcf_factor_kgco2e_per_kg"] = out["product_name"].map(product_factor_map)
+
+    out = ensure_numeric_column(
+        out,
+        "openpcf_factor_kgco2e_per_kg",
+        openpcf_default,
+    )
+    ceda_default = safe_median(ceda, "ceda_factor_kgco2e_per_usd", 0.5)
+
+    if "ceda_factor_kgco2e_per_usd" not in out.columns:
+        out["ceda_factor_kgco2e_per_usd"] = np.nan
+
+        if (
+            ceda is not None
+            and not ceda.empty
+            and "country" in ceda.columns
+            and "ceda_factor_kgco2e_per_usd" in ceda.columns
+            and "country" in out.columns
+        ):
+            country_factor_map = (
+                ceda.assign(
+                    ceda_factor_kgco2e_per_usd=pd.to_numeric(
+                        ceda["ceda_factor_kgco2e_per_usd"],
+                        errors="coerce",
+                    )
+                )
+                .dropna(subset=["country", "ceda_factor_kgco2e_per_usd"])
+                .groupby("country")["ceda_factor_kgco2e_per_usd"]
+                .median()
+            )
+
+            out["ceda_factor_kgco2e_per_usd"] = out["country"].map(country_factor_map)
+
+    out = ensure_numeric_column(
+        out,
+        "ceda_factor_kgco2e_per_usd",
+        ceda_default,
+    )
+    out = ensure_numeric_column(out, "product_weight_kg", 1.0)
+    if "lca_proxy_pcf" not in out.columns:
+        out["lca_proxy_pcf"] = (
+            out["product_weight_kg"].clip(lower=0.0001)
+            * out["openpcf_factor_kgco2e_per_kg"].clip(lower=0.0001)
+        )
     else:
-        out["ceda_factor_kgco2e_per_usd"] = out.get("ceda_factor_kgco2e_per_usd", np.nan).fillna(0.5)
+        out["lca_proxy_pcf"] = pd.to_numeric(out["lca_proxy_pcf"], errors="coerce")
+        out["lca_proxy_pcf"] = out["lca_proxy_pcf"].fillna(
+            out["product_weight_kg"].clip(lower=0.0001)
+            * out["openpcf_factor_kgco2e_per_kg"].clip(lower=0.0001)
+        )
+    out = ensure_numeric_column(out, "renewable_energy_pct", 0.0)
+    out = ensure_numeric_column(out, "material_reduction_pct", 0.0)
+    out = ensure_numeric_column(out, "transport_improvement_pct", 0.0)
+
     return out
 
 
