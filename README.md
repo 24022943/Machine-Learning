@@ -68,61 +68,86 @@ Chạy unit tests:
 python -m pytest tests -v --cov=carbon_utils --cov=scenario_projection --cov-report=term-missing
 ```
 
-## 4. Nâng cấp đã bổ sung theo góp ý nghiên cứu
+## 4. Tổng quan về đề tài
 
-### 4.1 Class imbalance handling
+### 4.1. Bối cảnh nghiên cứu
 
-Bản mới thêm `imbalance_handler.py` và cập nhật pipeline phân loại:
+Trong bối cảnh phát triển bền vững và chuyển đổi xanh, việc đánh giá phát thải carbon của sản phẩm ngày càng trở thành yêu cầu quan trọng đối với doanh nghiệp, chuỗi cung ứng và các hoạt động quản lý môi trường. Một trong những chỉ số được sử dụng phổ biến là **Product Carbon Footprint (PCF)**, phản ánh lượng phát thải khí nhà kính phát sinh trong vòng đời của một sản phẩm, thường được quy đổi về đơn vị **kg CO₂e**.
 
-- Có class distribution report.
-- Có balanced class weights.
-- Có thể dùng SMOTE trong pipeline `preprocessor -> SMOTE -> model` nếu đã cài `imbalanced-learn`.
-- Metric có thêm `recall_high`, `f1_high`, `high_class_warning` để phát hiện mô hình bỏ sót lớp phát thải cao.
-- Chọn mô hình theo `f1_macro` và `balanced_accuracy`, không chỉ theo `accuracy`.
+Tuy nhiên, việc tính toán PCF theo phương pháp LCA truyền thống thường đòi hỏi nhiều dữ liệu kiểm kê chi tiết, chuyên môn môi trường và thời gian xử lý. Vì vậy, đề tài này xây dựng hệ thống **EcoPredict Carbon** như một prototype hỗ trợ ước lượng sơ bộ PCF bằng cách kết hợp dữ liệu môi trường, tư duy LCA và các mô hình Machine Learning.
 
-### 4.2 SHAP/XAI
+### 4.2. Mục tiêu đề tài
 
-Bản mới giữ permutation importance và bổ sung SHAP:
+Mục tiêu của đề tài là xây dựng một hệ thống hỗ trợ dự báo và phân tích phát thải carbon của sản phẩm, có khả năng:
 
-- SHAP feature ranking.
-- SHAP beeswarm.
-- SHAP waterfall cho một mẫu.
-- SHAP dependence plot.
-- Bảng `shap_feature_importance.csv`.
+* Ước lượng sơ bộ PCF của sản phẩm dựa trên các thông tin đầu vào như năm, quốc gia/khu vực, nhóm ngành, ngành sản phẩm, khối lượng và tỷ trọng vòng đời.
+* Phân loại mức phát thải carbon của sản phẩm thành các nhóm **Thấp / Trung bình / Cao**.
+* So sánh kết quả PCF của sản phẩm với trung vị ngành, trung vị toàn bộ dữ liệu và dữ liệu tham chiếu OpenPCF.
+* Kết hợp phương pháp **LCA bottom-up** thông qua công thức `activity data × emission factor`.
+* Mô phỏng kịch bản phát thải trong tương lai bằng mô hình **scenario-based projection**, dựa trên các giả định về năng lượng, vật liệu, vận chuyển và tối ưu chuỗi cung ứng.
+* Giải thích các yếu tố ảnh hưởng đến kết quả dự báo thông qua permutation importance và SHAP/XAI.
+* Hỗ trợ người dùng đánh giá mức tin cậy của kết quả dựa trên phạm vi dữ liệu tham chiếu và chất lượng đầu vào.
 
-### 4.3 Sensitivity analysis
+### 4.3. Dữ liệu sử dụng
 
-Bản mới thêm:
+Hệ thống sử dụng và hợp nhất nhiều nguồn dữ liệu liên quan đến phát thải carbon sản phẩm, bao gồm:
 
-- Tornado chart: tác động của ±20% emission factor lên PCF.
-- 2-way heatmap: vật liệu và năng lượng thay đổi đồng thời.
-- Scenario sensitivity: so sánh baseline, net zero và pessimistic.
+* **Carbon Catalogue**: dữ liệu PCF lịch sử của các sản phẩm, dùng làm nền cho huấn luyện mô hình.
+* **OpenPCF by Terralytiq**: dữ liệu hệ số phát thải theo sản phẩm/vật liệu, hỗ trợ tham chiếu PCF theo khối lượng.
+* **Open CEDA**: dữ liệu hệ số phát thải theo quốc gia, ngành hoặc khu vực, hỗ trợ mở rộng ngữ cảnh phát thải.
+* **Inventory bottom-up do người dùng nhập**: gồm vật liệu, năng lượng, vận chuyển, bao bì và xử lý cuối vòng đời.
 
-### 4.4 Scenario projection thay ARIMA
+Các nguồn dữ liệu này được chuẩn hóa, xử lý thiếu dữ liệu, mã hóa biến phân loại và đưa vào pipeline Machine Learning để phục vụ dự báo, phân loại, benchmark và phân tích kịch bản.
 
-Hệ thống không dùng ARIMA vì dữ liệu PCF không phải chuỗi thời gian liên tục đủ dài. Phần tương lai được mô hình hóa bằng scenario-based parametric projection theo các driver vòng đời:
+### 4.4. Phương pháp tiếp cận
 
-- Upstream/material.
-- Operations/energy.
-- Downstream/use.
-- Transport/logistics.
-- End-of-life.
+Đề tài sử dụng cách tiếp cận kết hợp giữa **PCF, LCA và Machine Learning**:
 
-## 5. Phạm vi sử dụng đúng
+* **PCF** là chỉ số trung tâm của hệ thống, dùng để định lượng dấu chân carbon của sản phẩm.
+* **LCA** đóng vai trò là khung phương pháp, giúp tổ chức dữ liệu theo vòng đời sản phẩm như upstream, operations, downstream, transport và end-of-life.
+* **Machine Learning** được sử dụng để học quan hệ giữa đặc trưng sản phẩm và PCF, từ đó hỗ trợ dự báo, phân loại và giải thích yếu tố ảnh hưởng.
+* **Scenario Projection** được dùng thay cho dự báo chuỗi thời gian ARIMA, vì dữ liệu PCF không tạo thành chuỗi thời gian đủ dài và liên tục. Cách tiếp cận này minh bạch hơn, cho phép mô phỏng các kịch bản như baseline, net zero hoặc pessimistic dựa trên các giả định rõ ràng.
+* **SHAP/XAI** được bổ sung để tăng tính giải thích của mô hình, giúp người dùng hiểu yếu tố nào làm tăng hoặc giảm xu hướng phát thải.
 
-Phù hợp để:
+### 4.5. Kiến trúc hệ thống
 
-- Ước lượng sơ bộ PCF.
-- Benchmark sản phẩm với trung vị ngành.
-- Giải thích yếu tố ảnh hưởng.
-- Mô phỏng kịch bản giảm phát thải.
-- Hỗ trợ học thuật và ra quyết định sơ bộ.
+Hệ thống được triển khai bằng Python và Streamlit, gồm các thành phần chính:
 
-Chưa phù hợp để:
+1. **Data Processing Layer**
+   Tiền xử lý dữ liệu, hợp nhất các nguồn dữ liệu, xử lý missing values, chuẩn hóa feature và xây dựng tập huấn luyện.
 
-- Chứng nhận ISO/EPD chính thức.
-- Khai báo ESG/green claims có giá trị pháp lý.
-- Thay thế LCA chính thức với physical data collection và critical review.
+2. **Machine Learning Layer**
+   Huấn luyện các mô hình phân loại và hồi quy như Random Forest, Extra Trees, Logistic Regression, Ridge và Dummy Baseline. Hệ thống có bổ sung xử lý mất cân bằng lớp, đánh giá bằng F1-macro, balanced accuracy và confusion matrix.
+
+3. **LCA Bottom-up Layer**
+   Cho phép người dùng nhập inventory cơ bản để tính PCF theo công thức `activity data × emission factor`.
+
+4. **Scenario Projection Layer**
+   Mô phỏng PCF tương lai theo các kịch bản dựa trên các driver như giảm vật liệu, tăng điện tái tạo, cải thiện vận chuyển và tối ưu supplier/geography.
+
+5. **Explainability Layer**
+   Cung cấp permutation importance, SHAP plots, local feature impact và sensitivity analysis để giải thích mô hình.
+
+6. **Streamlit UI Layer**
+   Giao diện dashboard trực quan gồm các trang: Dự báo, Dữ liệu, LCA/ISO nâng cao, ML & đánh giá và Quy trình.
+
+### 4.6. Ý nghĩa của đề tài
+
+EcoPredict Carbon không nhằm thay thế kiểm kê LCA chính thức hoặc chứng nhận ISO/EPD, mà đóng vai trò là một **prototype hỗ trợ ra quyết định**. Hệ thống giúp người dùng nhanh chóng ước lượng phát thải carbon, so sánh với benchmark ngành, xác định yếu tố ảnh hưởng chính và thử nghiệm các kịch bản giảm phát thải.
+
+Về mặt học thuật, đề tài thể hiện khả năng kết hợp giữa dữ liệu môi trường, phương pháp LCA và Machine Learning trong một hệ thống phân tích có giao diện trực quan. Về mặt ứng dụng, hệ thống có thể được xem như bước đầu để phát triển các công cụ hỗ trợ doanh nghiệp trong việc đánh giá sơ bộ PCF, lập kế hoạch giảm phát thải và chuẩn bị dữ liệu cho các hoạt động LCA chuyên sâu hơn.
+
+## 5. Giới hạn phạm vi
+
+Hệ thống hiện tại là prototype nghiên cứu, vì vậy có một số giới hạn cần lưu ý:
+
+* Kết quả PCF chỉ mang tính ước lượng và tham khảo.
+* Dữ liệu đầu vào được tổng hợp từ nhiều nguồn khác nhau, có thể khác biệt về thời gian, phạm vi và mức độ chi tiết.
+* Phân loại Low / Medium / High phụ thuộc vào ngưỡng PCF được xây dựng từ dữ liệu huấn luyện.
+* Mô phỏng tương lai là kịch bản giả định, không phải dự báo tuyệt đối.
+* Hệ thống chưa phải công cụ chứng nhận ISO 14040, ISO 14067 hoặc EPD chính thức.
+
+Do đó, kết quả từ hệ thống nên được sử dụng cho mục đích phân tích sơ bộ, benchmark và hỗ trợ ra quyết định, không thay thế cho kiểm kê LCA đầy đủ có kiểm định chuyên gia.
 
 ## 6. Ghi chú học thuật
 
