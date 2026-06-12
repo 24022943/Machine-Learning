@@ -81,7 +81,7 @@ Tuy nhiên, việc tính toán PCF theo phương pháp LCA truyền thống thư
 Mục tiêu của đề tài là xây dựng một hệ thống hỗ trợ dự báo và phân tích phát thải carbon của sản phẩm, có khả năng:
 
 * Ước lượng sơ bộ PCF của sản phẩm dựa trên các thông tin đầu vào như năm, quốc gia/khu vực, nhóm ngành, ngành sản phẩm, khối lượng và tỷ trọng vòng đời.
-* Phân loại mức phát thải carbon của sản phẩm thành các nhóm **Thấp / Trung bình / Cao**.
+* Phân loại mức phát thải carbon của sản phẩm thành các nhóm **Low / Medium / High**.
 * So sánh kết quả PCF của sản phẩm với trung vị ngành, trung vị toàn bộ dữ liệu và dữ liệu tham chiếu OpenPCF.
 * Kết hợp phương pháp **LCA bottom-up** thông qua công thức `activity data × emission factor`.
 * Mô phỏng kịch bản phát thải trong tương lai bằng mô hình **scenario-based projection**, dựa trên các giả định về năng lượng, vật liệu, vận chuyển và tối ưu chuỗi cung ứng.
@@ -106,7 +106,7 @@ Các nguồn dữ liệu này được chuẩn hóa, xử lý thiếu dữ liệ
 * **PCF** là chỉ số trung tâm của hệ thống, dùng để định lượng dấu chân carbon của sản phẩm.
 * **LCA** đóng vai trò là khung phương pháp, giúp tổ chức dữ liệu theo vòng đời sản phẩm như upstream, operations, downstream, transport và end-of-life.
 * **Machine Learning** được sử dụng để học quan hệ giữa đặc trưng sản phẩm và PCF, từ đó hỗ trợ dự báo, phân loại và giải thích yếu tố ảnh hưởng.
-* **Scenario Projection** được dùng thay cho dự báo chuỗi thời gian ARIMA, vì dữ liệu PCF không tạo thành chuỗi thời gian đủ dài và liên tục. Cách tiếp cận này minh bạch hơn, cho phép mô phỏng các kịch bản như baseline, net zero hoặc pessimistic dựa trên các giả định rõ ràng.
+* **Scenario Projection** được dùng thay cho dự báo chuỗi thời gian ARIMA. Cách tiếp cận này cho phép mô phỏng các kịch bản như baseline, net zero hoặc pessimistic dựa trên các giả định rõ ràng.
 * **SHAP/XAI** được bổ sung để tăng tính giải thích của mô hình, giúp người dùng hiểu yếu tố nào làm tăng hoặc giảm xu hướng phát thải.
 
 ### 4.5. Kiến trúc hệ thống
@@ -117,7 +117,7 @@ Hệ thống được triển khai bằng Python và Streamlit, gồm các thàn
    Tiền xử lý dữ liệu, hợp nhất các nguồn dữ liệu, xử lý missing values, chuẩn hóa feature và xây dựng tập huấn luyện.
 
 2. **Machine Learning Layer**
-   Huấn luyện các mô hình phân loại và hồi quy như Random Forest, Extra Trees, Logistic Regression, Ridge và Dummy Baseline. Hệ thống có bổ sung xử lý mất cân bằng lớp, đánh giá bằng F1-macro, balanced accuracy và confusion matrix.
+   Huấn luyện các mô hình phân loại và hồi quy như Random Forest, Extra Trees, Logistic Regression, Ridge và Dummy Baseline. Hệ thống có bổ sung xử lý mất cân bằng lớp, đánh giá bằng F1-macro, Balanced Accuracy và Confusion Matrix.
 
 3. **LCA Bottom-up Layer**
    Cho phép người dùng nhập inventory cơ bản để tính PCF theo công thức `activity data × emission factor`.
@@ -126,10 +126,10 @@ Hệ thống được triển khai bằng Python và Streamlit, gồm các thàn
    Mô phỏng PCF tương lai theo các kịch bản dựa trên các driver như giảm vật liệu, tăng điện tái tạo, cải thiện vận chuyển và tối ưu supplier/geography.
 
 5. **Explainability Layer**
-   Cung cấp permutation importance, SHAP plots, local feature impact và sensitivity analysis để giải thích mô hình.
+   Cung cấp Permutation importance, SHAP plots, Local feature impact và Sensitivity analysis để giải thích mô hình.
 
 6. **Streamlit UI Layer**
-   Giao diện dashboard trực quan gồm các trang: Dự báo, Dữ liệu, LCA/ISO nâng cao, ML & đánh giá và Quy trình.
+   Giao diện dashboard trực quan gồm các trang: Dự báo, Dữ liệu, LCA/ISO nâng cao, Đánh giá Machine Learning và Quy trình.
 
 ### 4.6. Ý nghĩa của đề tài
 
